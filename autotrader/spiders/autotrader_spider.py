@@ -47,7 +47,7 @@ class AutotraderCoUkSpider(Spider):
             'encoding': 'utf8',
             'fields': csv_headers,
             'indent': 4,
-            'overwrite': True,
+            'overwrite': False,
         }
     }
 
@@ -94,7 +94,6 @@ class AutotraderCoUkSpider(Spider):
         yield Request(url=self.base_url, callback=self.parse, headers=self.headers, meta=self.meta)
 
     def parse(self, response, **kwargs):
-        # for year in range(2017, 2025):
         for year in range(2020, 2025):
             for fuel in fuel_types:
                 body = deepcopy(listings_filters_data)
@@ -106,21 +105,20 @@ class AutotraderCoUkSpider(Spider):
                         body[0]['variables']['filters'][i]['selected'] = [f'{year}']
                     self.add_or_update_filter(body, 'fuel_type', fuel)
 
-                    # for make in self.req_filters['filters'][0]['options']:
-                    #     req_body = deepcopy(body)
-                    #     self.add_or_update_filter(req_body, 'make', make['value'])
-                    #
-                    #     meta = deepcopy(self.meta)
-                    #     meta['req_body'] = deepcopy(req_body)
-                    #
-                    #     yield Request(url=self.listings_url, callback=self.parse_listings, headers=self.headers,
-                    #                   method='POST', body=json.dumps(req_body), meta=meta)
+                    for make in self.req_filters['filters'][0]['options']:
+                        req_body = deepcopy(body)
+                        self.add_or_update_filter(req_body, 'make', make['value'])
+
+                        meta = deepcopy(self.meta)
+                        meta['req_body'] = deepcopy(req_body)
+
+                        yield Request(url=self.listings_url, callback=self.parse_listings, headers=self.headers,
+                                      method='POST', body=json.dumps(req_body), meta=meta)
 
                 meta = deepcopy(self.meta)
                 meta['req_body'] = deepcopy(body)
                 yield Request(url=self.listings_url, callback=self.parse_search_results, headers=self.headers,
                               method='POST', body=json.dumps(body), meta=meta)
-                return
 
     @retry_invalid_response
     def parse_search_results(self, response):
@@ -170,7 +168,7 @@ class AutotraderCoUkSpider(Spider):
                     yield Request(url=self.details_url, callback=self.parse_details, method="POST",
                                   headers=self.headers, body=json.dumps(body), meta=meta)
                 except Exception as err:
-                    print(err)
+                    logging.error(err)
                     a = 0
 
         total_pages_count = data[0]['data']['searchResults']['page']['count']
@@ -183,8 +181,8 @@ class AutotraderCoUkSpider(Spider):
         if next_page_number > total_pages_count and next_page_number > response.meta['total_pages']:
             return
 
-        # yield Request(url=self.listings_url, callback=self.parse_listings, headers=self.headers,
-        #               method='POST', body=json.dumps(response.meta['req_body']), meta=response.meta)
+        yield Request(url=self.listings_url, callback=self.parse_listings, headers=self.headers,
+                      method='POST', body=json.dumps(response.meta['req_body']), meta=response.meta)
 
     def parse_details(self, response):
         data = json.loads(response.text)
