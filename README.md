@@ -36,7 +36,7 @@ You can download the scraper project [here](https://github.com/arslan-demo-scrap
 2. Open the terminal in PyCharm and run the following commands:
 
 ```shell
-pip install Scrapy==2.5.1
+pip install Scrapy==2.13.4
 pip install pillow
 pip install google-generativeai
 ```
