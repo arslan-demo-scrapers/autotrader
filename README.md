@@ -45,7 +45,22 @@ pip install google-generativeai
 
 ---
 
-## Step 2: Running the Script
+## Step 2: Setup Environment Variables
+
+Before running the scraper, create a `.env` file in your project root with the following content:
+
+GEMINI_API_KEY=your_key
+REQUEST_FILTERS_FILE=input/request_filters.json
+
+### Notes
+
+- Replace `your_key` with your actual Gemini API key.
+- `REQUEST_FILTERS_FILE` is the relative path from the project root to your request filters JSON file.
+- This `.env` file will be automatically read by the scraper to configure API access and request filters.
+
+---
+
+## Step 3: Running the Script
 
 ### Before Running
 
@@ -65,7 +80,7 @@ pip install google-generativeai
 
 ---
 
-## Step 3: Output Location
+## Step 4: Output Location
 
 - Scraped results will be stored in a CSV file named: `autotrader_cars.csv`
 - The CSV file will be located in the output folder.
