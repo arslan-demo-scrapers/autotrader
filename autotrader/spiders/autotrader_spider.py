@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from copy import deepcopy
 from pathlib import Path
@@ -6,25 +7,19 @@ from pathlib import Path
 from scrapy import Spider, Request
 from scrapy.crawler import CrawlerProcess
 
+from autotrader.autotrader.config.env_config import EnvConfig
 from autotrader.autotrader.core.decorators import retry_invalid_response
-from autotrader.autotrader.static import listings_filters_data, handle_httpstatus_list, details_data, fuel_types, \
-    manufacturers
+from autotrader.autotrader.static import listings_filters_data, handle_httpstatus_list, details_data, fuel_types
 
 
-def get_cur_dir_abs_path():
-    # return os.path.dirname(__file__)
-    # return str(Path().absolute())
-    return "/".join(str(Path.cwd()).split('/')[:-1])
-
-
-def get_current_file_name():
-    return os.path.basename(__file__)
+def get_project_root_dir_path():
+    return str(Path.cwd().parent)
 
 
 class AutotraderCoUkSpider(Spider):
     name = "autotrader_co_uk_spider"
     filepath = '../output/autotrader_cars.csv'
-    images_dir = f"{get_cur_dir_abs_path()}/images"
+    images_dir = f"{get_project_root_dir_path()}/images"
     base_url = "https://www.autotrader.co.uk/"
     listings_url = "https://www.autotrader.co.uk/at-gateway?opname=SearchResultsListingsGridQuery"
     overview_url_t = "https://www.autotrader.co.uk/product-page/v1/advert/{advert_id}?channel=cars"
@@ -63,6 +58,7 @@ class AutotraderCoUkSpider(Spider):
 
         'ITEM_PIPELINES': {
             'autotrader.autotrader.pipelines.DownloadImagesPipeline': 100,
+            'autotrader.autotrader.custom_pipelines.retrieve_reg_number_pipeline.RetrieveRegNumberPipeline': 200,
         },
 
         'IMAGES_STORE': images_dir,
@@ -92,6 +88,7 @@ class AutotraderCoUkSpider(Spider):
         super().__init__(**kwargs)
         if not os.path.exists(self.images_dir):
             os.mkdir(self.images_dir)
+        self.req_filters = self.get_request_filters(EnvConfig.REQUEST_FILTERS_FILE)
 
     async def start(self):
         yield Request(url=self.base_url, callback=self.parse, headers=self.headers, meta=self.meta)
@@ -109,7 +106,7 @@ class AutotraderCoUkSpider(Spider):
                         body[0]['variables']['filters'][i]['selected'] = [f'{year}']
                     self.add_or_update_filter(body, 'fuel_type', fuel)
 
-                    # for make in manufacturers['filters'][0]['options']:
+                    # for make in self.req_filters['filters'][0]['options']:
                     #     req_body = deepcopy(body)
                     #     self.add_or_update_filter(req_body, 'make', make['value'])
                     #
@@ -132,7 +129,7 @@ class AutotraderCoUkSpider(Spider):
         if data[0]['data']['searchResults']['page']['count'] < 100:
             yield from self.parse_listings(response)
         else:
-            for make in manufacturers['filters'][0]['options']:
+            for make in self.req_filters['filters'][0]['options']:
                 req_body = deepcopy(response.meta['req_body'])
                 self.add_or_update_filter(req_body, 'make', make['value'])
 
@@ -257,6 +254,17 @@ class AutotraderCoUkSpider(Spider):
 
         body[0]['variables']['filters'].append(new_filter)
         a = 0
+
+    def get_request_filters(self, file_path):
+        abs_file_path = os.path.join(get_project_root_dir_path(), file_path)
+        if not os.path.exists(abs_file_path):
+            logging.error("File does exist.")
+            exit(0)
+
+        with open(abs_file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return data
 
 
 if __name__ == "__main__":
